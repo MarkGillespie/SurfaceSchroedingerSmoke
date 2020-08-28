@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10.0)
 
-project(gc_polyscope_example)
+project(surface_schroedinger_smoke)
 
 ### Configure output locations
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -65,12 +65,17 @@ add_subdirectory(deps/polyscope)
 
 # == Build our project stuff
 
-set(SRCS 
+set(SRCS
   src/main.cpp
-	# add any other source files here
+  src/flow.h
+  src/flow.cpp
+  src/animated_quantity.h
+  src/animated_quantity.cpp
+  src/streamlines.h
+  src/streamlines.cpp
 )
 
-# To change the name of your executable, change "gc_project" in the lines below to whatever you want
-add_executable(gc_project "${SRCS}")
-target_include_directories(gc_project PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
-target_link_libraries(gc_project geometry-central polyscope)
+# To change the name of your executable, change "surface_schroedinger_smoke" in the lines below to whatever you want
+add_executable(surface_schroedinger_smoke "${SRCS}")
+target_include_directories(surface_schroedinger_smoke PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+target_link_libraries(surface_schroedinger_smoke geometry-central polyscope)
