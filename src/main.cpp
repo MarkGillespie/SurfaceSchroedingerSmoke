@@ -32,7 +32,7 @@ polyscope::SurfaceMesh* psMesh;
 VertexData<Vector2> velocityField;
 
 // Some algorithm parameters
-float dt  = 0.1;
+float dt  = 1. / 24.;
 int steps = 8;
 
 void drawEigenvectorInterpolation() {
@@ -73,6 +73,73 @@ void computeFlow(bool semiLagrangian) {
     polyscope::addAnimatedVertexScalarQuantity<VertexData<double>>(
         *psMesh, "flow", frames);
 }
+// float theta = atan(@P.x, @P.z);
+// float ymax  = 0.3;
+// float ymin  = -0.4;
+// float m     = 20;
+// i @inband   = 0;
+
+// if (@P.y >= ymin && @P.y <= ymax) {
+//     @psi1re = cos(m * theta);
+//     @psi1im = sin(m * theta);
+//     @inband = 1;
+// } else {
+//     @psi1re = 1;
+//     @psi1im = 0;
+// }
+// @psi2re = 0.01;
+// @psi2im = 0;
+
+void computeSchroedingerFlow() {
+    VertexData<double> randomField(*mesh);
+    for (Vertex v : mesh->vertices()) {
+        randomField[v] = unitRand();
+    }
+
+    SchroedingerSolver ernst(*mesh, *geometry, dt, 0.05);
+
+    Wavefunction psi{VertexData<std::complex<double>>(*mesh),
+                     VertexData<std::complex<double>>(*mesh)};
+    std::complex<double> i(0, 1);
+    VertexData<double> inBand(*mesh);
+    for (Vertex v : mesh->vertices()) {
+        Vector3 pos  = geometry->inputVertexPositions[v];
+        double theta = atan2(pos.x, pos.z);
+        double ymax  = 0.3;
+        double ymin  = -0.4;
+        double m     = 20;
+        if (pos.y >= ymin && pos.y <= ymax) {
+            psi[0][v] = exp(i * m * theta);
+            inBand[v] = 1;
+        } else {
+            psi[0][v] = 1;
+            inBand[v] = 0;
+        }
+        psi[1][v] = 0.01;
+    }
+    ernst.normalize(psi);
+    psi = ernst.pressureProject(psi);
+    ernst.normalize(psi);
+    psMesh->addVertexScalarQuantity("inBand", inBand);
+
+    std::vector<Wavefunction> frames = ernst.schroedingerFlow(psi, steps);
+
+    std::vector<FaceData<Vector2>> faceVectors;
+    std::vector<VertexData<Vector3>> vertexPhaseColors;
+    for (size_t iF = 0; iF < frames.size(); ++iF) {
+        faceVectors.push_back(
+            ernst.reconstructFaceVectors(ernst.getVelocityField(frames[iF])));
+        vertexPhaseColors.push_back(ernst.computeSpin(frames[iF]));
+        // psMesh->addFaceIntrinsicVectorQuantity(
+        //     "Frame" + std::to_string(iF),
+        //     ernst.reconstructFaceVectors(frames[iF]));
+    }
+
+    polyscope::addAnimatedFaceIntrinsicVectorQuantity<FaceData<Vector2>>(
+        *psMesh, "ISF", faceVectors);
+    polyscope::addAnimatedVertexColorQuantity(*psMesh, "ISF phase",
+                                              vertexPhaseColors);
+}
 
 // A user-defined callback, for creating control panels (etc)
 // Use ImGUI commands to build whatever you want here, see
@@ -86,8 +153,13 @@ void myCallback() {
         computeFlow(true);
     }
 
-    ImGui::SliderFloat("dt", &dt, 0.001, 5);
-    ImGui::SliderInt("steps", &steps, 1, 1000);
+    ImGui::SliderFloat("dt", &dt, 0.001, 0.5);
+    ImGui::SliderInt("steps", &steps, 1, 500);
+
+    ImGui::Separator();
+    if (ImGui::Button("Schroedinger Flow")) {
+        computeSchroedingerFlow();
+    }
 }
 
 int main(int argc, char** argv) {
@@ -167,6 +239,7 @@ int main(int argc, char** argv) {
     auto fField = toFaces(*mesh, *geometry, velocityField);
     psMesh->addFaceIntrinsicVectorQuantity("FF", fField);
     */
+
 
     // Give control to the polyscope gui
     polyscope::show();
